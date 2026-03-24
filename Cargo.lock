@@ -1150,6 +1150,7 @@ name = "opencli-rs-pipeline"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64",
  "futures",
  "opencli-rs-core",
  "pest",
