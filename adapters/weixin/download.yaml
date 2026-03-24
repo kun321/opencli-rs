@@ -1,0 +1,66 @@
+site: weixin
+name: download
+description: "下载微信公众号文章为 Markdown 格式"
+domain: mp.weixin.qq.com
+strategy: cookie
+browser: true
+
+args:
+  url:
+    type: string
+    required: true
+    description: "WeChat article URL (mp.weixin.qq.com/s/xxx)"
+  output:
+    type: string
+    default: ./weixin-articles
+    description: Output directory
+  download-images:
+    type: boolean
+    default: true
+    description: Download images locally
+
+columns: [title, author, publish_time, status, size]
+
+pipeline:
+  - evaluate: |
+      (async () => {
+        const rawUrl = ${{ args.url | json }};
+        let url = (rawUrl || '').trim();
+        if (url.startsWith('mp.weixin.qq.com/') || url.startsWith('//mp.weixin.qq.com/')) {
+          url = 'https://' + url.replace(/^\/+/, '');
+        }
+        if (!url.includes('mp.weixin.qq.com/')) {
+          return [{ title: 'Error', author: '-', publish_time: '-', status: 'invalid URL', size: '-' }];
+        }
+
+        window.location.href = url;
+        await new Promise(r => setTimeout(r, 5000));
+
+        const titleEl = document.querySelector('#activity-name');
+        const title = titleEl ? titleEl.textContent.trim() : '';
+        const authorEl = document.querySelector('#js_name');
+        const author = authorEl ? authorEl.textContent.trim() : '';
+
+        const htmlStr = document.documentElement.innerHTML;
+        let publishTime = '';
+        let timeMatch = htmlStr.match(/create_time\s*:\s*'(\d+)'/);
+        if (!timeMatch) timeMatch = htmlStr.match(/create_time\s*[:=]\s*["']?(\d+)["']?/);
+        if (timeMatch) {
+          const ts = parseInt(timeMatch[1], 10);
+          if (ts > 0) {
+            const d = new Date(ts * 1000);
+            publishTime = d.toISOString().replace('T', ' ').substring(0, 19);
+          }
+        }
+
+        const contentEl = document.querySelector('#js_content');
+        const size = contentEl ? contentEl.innerText.length + ' chars' : '0';
+
+        return [{
+          title: title || 'Unknown',
+          author: author || '-',
+          publish_time: publishTime || '-',
+          status: 'Article content extracted. Full Markdown conversion requires the TypeScript adapter.',
+          size: size,
+        }];
+      })()
