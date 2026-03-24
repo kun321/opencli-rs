@@ -1,0 +1,39 @@
+# NOTE: This adapter requires yt-dlp and Rust-side processing (checkYtdlp, downloadMedia,
+# getCookies, sanitizeFilename) that cannot be expressed purely in YAML pipeline evaluate steps.
+# It is included as a placeholder; full functionality requires native Rust adapter support.
+site: bilibili
+name: download
+description: 下载B站视频（需要 yt-dlp）
+domain: www.bilibili.com
+strategy: cookie
+
+args:
+  bvid:
+    required: true
+    positional: true
+    description: Video BV ID (e.g., BV1xxx)
+  output:
+    default: ./bilibili-downloads
+    description: Output directory
+  quality:
+    default: best
+    description: "Video quality (best, 1080p, 720p, 480p)"
+
+columns: [bvid, title, status, size]
+
+pipeline:
+  - navigate: https://www.bilibili.com/video/${{ args.bvid }}
+
+  - wait: 3
+
+  - evaluate: |
+      (() => {
+        const title = document.querySelector('h1.video-title, .video-title')?.textContent?.trim() || 'video';
+        const author = document.querySelector('.up-name, .username')?.textContent?.trim() || 'unknown';
+        return [{
+          bvid: '${{ args.bvid }}',
+          title: title,
+          status: 'requires-native-download',
+          size: 'YAML pipeline cannot invoke yt-dlp; use native adapter'
+        }];
+      })()
